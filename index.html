@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Color Catcher</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --border: #1e1e2e;
+    --text: #e8e8f0;
+    --muted: #5a5a7a;
+    --accent: #c084fc;
+    --accent2: #818cf8;
+    --danger: #f87171;
+    --success: #34d399;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* Subtle grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(192,132,252,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(192,132,252,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    padding: 24px;
+    width: 100%;
+    max-width: 460px;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2.8rem, 8vw, 4rem);
+    letter-spacing: 0.08em;
+    line-height: 1;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .tagline {
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+
+  /* ── HUD ── */
+  .hud {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+  }
+
+  .hud-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .hud-label {
+    font-size: 0.55rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .hud-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text);
+    transition: color 0.2s;
+  }
+
+  .hud-value.accent { color: var(--accent); }
+  .hud-value.danger { color: var(--danger); }
+
+  /* ── TIMER BAR ── */
+  .timer-bar-wrap {
+    width: 100%;
+    height: 4px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+
+  .timer-bar {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    border-radius: 99px;
+    transition: width 1s linear, background 0.5s;
+    transform-origin: left;
+  }
+
+  .timer-bar.low {
+    background: linear-gradient(90deg, var(--danger), #fb923c);
+  }
+
+  /* ── LEVEL BADGE ── */
+  .level-badge {
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .level-badge span {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  /* ── GRID ── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    width: 100%;
+  }
+
+  .circle-btn {
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.15s;
+    position: relative;
+    outline: none;
+  }
+
+  .circle-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    box-shadow: inset 0 -6px 12px rgba(0,0,0,0.3), inset 0 4px 8px rgba(255,255,255,0.12);
+  }
+
+  .circle-btn:hover {
+    transform: scale(1.06);
+  }
+
+  .circle-btn:active {
+    transform: scale(0.95);
+  }
+
+  .circle-btn.correct {
+    animation: pop-correct 0.35s ease forwards;
+    pointer-events: none;
+  }
+
+  .circle-btn.wrong {
+    animation: shake-wrong 0.35s ease forwards;
+  }
+
+  @keyframes pop-correct {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.25); box-shadow: 0 0 0 6px rgba(52,211,153,0.35); }
+    100% { transform: scale(1); opacity: 0.3; }
+  }
+
+  @keyframes shake-wrong {
+    0%, 100% { transform: translateX(0); }
+    20%  { transform: translateX(-7px); }
+    40%  { transform: translateX(7px); }
+    60%  { transform: translateX(-5px); }
+    80%  { transform: translateX(5px); }
+  }
+
+  /* ── FEEDBACK ── */
+  .feedback {
+    height: 22px;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--success);
+    text-align: center;
+    transition: opacity 0.3s;
+    opacity: 0;
+  }
+
+  .feedback.visible { opacity: 1; }
+  .feedback.wrong-fb { color: var(--danger); }
+
+  /* ── OVERLAY (start / end) ── */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,10,15,0.92);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    opacity: 1;
+    transition: opacity 0.4s;
+  }
+
+  .overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px 36px;
+    max-width: 340px;
+    width: 90%;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    animation: slide-in 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  @keyframes slide-in {
+    from { transform: translateY(30px) scale(0.95); opacity: 0; }
+    to   { transform: translateY(0) scale(1); opacity: 1; }
+  }
+
+  .panel-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.6rem;
+    letter-spacing: 0.06em;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+  }
+
+  .panel-sub {
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    line-height: 1.7;
+    text-transform: uppercase;
+  }
+
+  .stat-row {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .stat-num {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .stat-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .hs-badge {
+    background: rgba(192,132,252,0.08);
+    border: 1px solid rgba(192,132,252,0.2);
+    border-radius: 8px;
+    padding: 8px 20px;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: none;
+  }
+
+  .hs-badge.visible { display: block; }
+
+  .btn {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 14px 40px;
+    cursor: pointer;
+    transition: transform 0.15s, opacity 0.15s;
+    width: 100%;
+  }
+
+  .btn:hover { transform: translateY(-2px); opacity: 0.9; }
+  .btn:active { transform: translateY(0); }
+
+  .highscore-display {
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+
+  .highscore-display strong {
+    color: var(--accent2);
+  }
+
+  .lose-title {
+    background: linear-gradient(135deg, var(--danger), #fb923c);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .lose-score { color: var(--danger); }
+
+  .btn-danger {
+    background: linear-gradient(135deg, var(--danger), #fb923c);
+  }
+
+  /* screen flash on wrong */
+  .flash-red {
+    animation: flash-red 0.4s ease forwards;
+  }
+
+  @keyframes flash-red {
+    0%   { background-color: rgba(248,113,113,0.18); }
+    100% { background-color: transparent; }
+  }
+
+  /* floating +1 text */
+  .plus-one {
+    position: fixed;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    color: var(--success);
+    pointer-events: none;
+    z-index: 20;
+    animation: float-up 0.7s ease forwards;
+  }
+
+  @keyframes float-up {
+    0%   { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-60px) scale(1.3); }
+  }
+</style>
+</head>
+<body>
+
+<!-- START OVERLAY -->
+<div class="overlay" id="startOverlay">
+  <div class="panel">
+    <div class="panel-title">Color Catcher</div>
+    <p class="panel-sub">One circle is slightly darker.<br>Find it before the others fool you.</p>
+    <p class="panel-sub" style="color: var(--text); font-size:0.75rem;">60 seconds · difficulty increases</p>
+    <div id="startHs" class="highscore-display"></div>
+    <button class="btn" onclick="startGame()">Start Game</button>
+  </div>
+</div>
+
+<!-- END OVERLAY (time's up) -->
+<div class="overlay hidden" id="endOverlay">
+  <div class="panel">
+    <div class="panel-title">Time's Up</div>
+    <div class="stat-row">
+      <div class="stat">
+        <div class="stat-num" id="finalScore">0</div>
+        <div class="stat-label">Score</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" id="finalBest">0</div>
+        <div class="stat-label">Best</div>
+      </div>
+    </div>
+    <div class="hs-badge" id="newHsBadge">🏆 New High Score!</div>
+    <button class="btn" onclick="startGame()">Play Again</button>
+  </div>
+</div>
+
+<!-- LOSE OVERLAY (wrong click) -->
+<div class="overlay hidden" id="loseOverlay">
+  <div class="panel">
+    <div class="panel-title lose-title">You Lost</div>
+    <p class="panel-sub">Wrong circle — game over.</p>
+    <div class="stat-row">
+      <div class="stat">
+        <div class="stat-num lose-score" id="loseScore">0</div>
+        <div class="stat-label">Score</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" id="loseBest">0</div>
+        <div class="stat-label">Best</div>
+      </div>
+    </div>
+    <div class="hs-badge" id="loseHsBadge">🏆 New High Score!</div>
+    <button class="btn btn-danger" onclick="startGame()">Try Again</button>
+  </div>
+</div>
+
+<!-- GAME UI -->
+<div class="wrapper">
+  <div class="header">
+    <h1>Color Catcher</h1>
+    <div class="tagline">Find the odd one out</div>
+  </div>
+
+  <div class="hud">
+    <div class="hud-box">
+      <div class="hud-label">Score</div>
+      <div class="hud-value accent" id="scoreDisplay">0</div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">Time</div>
+      <div class="hud-value" id="timerDisplay">60</div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">Best</div>
+      <div class="hud-value" id="bestDisplay">0</div>
+    </div>
+  </div>
+
+  <div class="timer-bar-wrap">
+    <div class="timer-bar" id="timerBar"></div>
+  </div>
+
+  <div class="level-badge">
+    Round <span id="roundDisplay">1</span> · Difficulty <span id="diffDisplay">1</span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="feedback" id="feedback"></div>
+</div>
+
+<script>
+  const TOTAL_TIME = 60;
+  const GRID_SIZE = 9;
+
+  let score = 0;
+  let timeLeft = TOTAL_TIME;
+  let timerInterval = null;
+  let round = 0;
+  let correctIndex = -1;
+  let gameRunning = false;
+
+  // ── Highscore ──
+  function getHighScore() {
+    return parseInt(localStorage.getItem('colorCatcherHS') || '0');
+  }
+  function saveHighScore(s) {
+    localStorage.setItem('colorCatcherHS', String(s));
+  }
+
+  // ── Difficulty ──
+  // Returns darkness offset (smaller = harder)
+  function getDifficulty(round) {
+    // Starts at 40 lightness diff, decreases to min 6
+    return Math.max(6, 40 - Math.floor(round * 1.8));
+  }
+
+  // ── Color generation ──
+  function hslToHex(h, s, l) {
+    l /= 100; s /= 100;
+    const a = s * Math.min(l, 1 - l);
+    const f = n => {
+      const k = (n + h / 30) % 12;
+      const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+      return Math.round(255 * color).toString(16).padStart(2, '0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`;
+  }
+
+  function generateColors(round) {
+    const hue = Math.floor(Math.random() * 360);
+    const saturation = 55 + Math.floor(Math.random() * 30);
+    const lightness = 40 + Math.floor(Math.random() * 25);
+    const offset = getDifficulty(round);
+    const base = hslToHex(hue, saturation, lightness);
+    const dark = hslToHex(hue, saturation, lightness - offset);
+    return { base, dark, offset };
+  }
+
+  // ── Render grid ──
+  function renderGrid() {
+    round++;
+    correctIndex = Math.floor(Math.random() * GRID_SIZE);
+    const { base, dark, offset } = generateColors(round);
+
+    const grid = document.getElementById('grid');
+    grid.innerHTML = '';
+
+    for (let i = 0; i < GRID_SIZE; i++) {
+      const btn = document.createElement('button');
+      btn.className = 'circle-btn';
+      btn.style.background = i === correctIndex ? dark : base;
+      btn.dataset.index = i;
+      btn.addEventListener('click', () => handleClick(btn, i));
+      grid.appendChild(btn);
+    }
+
+    document.getElementById('roundDisplay').textContent = round;
+    document.getElementById('diffDisplay').textContent = Math.max(1, Math.ceil(round / 2));
+  }
+
+  // ── Click handler ──
+  function handleClick(btn, index) {
+    if (!gameRunning) return;
+
+    if (index === correctIndex) {
+      score++;
+      document.getElementById('scoreDisplay').textContent = score;
+      btn.classList.add('correct');
+      showFeedback('+1', false);
+      spawnPlusOne(btn);
+
+      setTimeout(() => renderGrid(), 320);
+    } else {
+      // Wrong circle — end game immediately
+      gameRunning = false;
+      btn.classList.add('wrong');
+
+      // Flash the correct circle so player sees what they missed
+      const circles = document.querySelectorAll('.circle-btn');
+      circles.forEach(c => c.style.pointerEvents = 'none');
+      circles[correctIndex].style.outline = '3px solid rgba(52,211,153,0.8)';
+      circles[correctIndex].style.outlineOffset = '4px';
+
+      // Red screen flash
+      document.body.classList.add('flash-red');
+      document.body.addEventListener('animationend', () => document.body.classList.remove('flash-red'), { once: true });
+
+      setTimeout(() => loseGame(), 600);
+    }
+  }
+
+  // ── Feedback ──
+  let feedbackTimer = null;
+  function showFeedback(msg, isWrong) {
+    const el = document.getElementById('feedback');
+    el.textContent = msg;
+    el.className = 'feedback visible' + (isWrong ? ' wrong-fb' : '');
+    clearTimeout(feedbackTimer);
+    feedbackTimer = setTimeout(() => el.classList.remove('visible'), 700);
+  }
+
+  // ── Floating +1 ──
+  function spawnPlusOne(btn) {
+    const rect = btn.getBoundingClientRect();
+    const el = document.createElement('div');
+    el.className = 'plus-one';
+    el.textContent = '+1';
+    el.style.left = (rect.left + rect.width / 2 - 20) + 'px';
+    el.style.top = (rect.top) + 'px';
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
+  }
+
+  // ── Timer ──
+  function startTimer() {
+    const bar = document.getElementById('timerBar');
+    const display = document.getElementById('timerDisplay');
+
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      display.textContent = timeLeft;
+      bar.style.width = (timeLeft / TOTAL_TIME * 100) + '%';
+
+      if (timeLeft <= 10) {
+        bar.classList.add('low');
+        display.classList.add('danger');
+      }
+
+      if (timeLeft <= 0) endGame();
+    }, 1000);
+  }
+
+  // ── Start ──
+  function startGame() {
+    score = 0;
+    timeLeft = TOTAL_TIME;
+    round = 0;
+    gameRunning = true;
+
+    document.getElementById('scoreDisplay').textContent = 0;
+    document.getElementById('timerDisplay').textContent = TOTAL_TIME;
+    document.getElementById('timerDisplay').classList.remove('danger');
+    document.getElementById('timerBar').style.width = '100%';
+    document.getElementById('timerBar').classList.remove('low');
+    document.getElementById('bestDisplay').textContent = getHighScore();
+
+    clearInterval(timerInterval);
+    renderGrid();
+    startTimer();
+
+    document.getElementById('startOverlay').classList.add('hidden');
+    document.getElementById('endOverlay').classList.add('hidden');
+    document.getElementById('loseOverlay').classList.add('hidden');
+  }
+
+  // ── Lose (wrong click) ──
+  function loseGame() {
+    clearInterval(timerInterval);
+    gameRunning = false;
+
+    const hs = getHighScore();
+    const isNew = score > hs;
+    if (isNew) saveHighScore(score);
+
+    document.getElementById('loseScore').textContent = score;
+    document.getElementById('loseBest').textContent = isNew ? score : hs;
+    document.getElementById('loseHsBadge').classList.toggle('visible', isNew);
+
+    document.getElementById('loseOverlay').classList.remove('hidden');
+  }
+
+  // ── End ──
+  function endGame() {
+    clearInterval(timerInterval);
+    gameRunning = false;
+
+    const hs = getHighScore();
+    const isNew = score > hs;
+    if (isNew) saveHighScore(score);
+
+    document.getElementById('finalScore').textContent = score;
+    document.getElementById('finalBest').textContent = isNew ? score : hs;
+    document.getElementById('newHsBadge').classList.toggle('visible', isNew);
+
+    setTimeout(() => {
+      document.getElementById('endOverlay').classList.remove('hidden');
+    }, 300);
+  }
+
+  // ── Init ──
+  const hs = getHighScore();
+  document.getElementById('bestDisplay').textContent = hs;
+  document.getElementById('startHs').innerHTML =
+    hs > 0 ? `High Score: <strong>${hs}</strong>` : '';
+</script>
+</body>
+</html>
